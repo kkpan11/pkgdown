@@ -8,11 +8,19 @@
 #' * copies CSS/JS assets and extra files, and
 #' * runs `build_favicons()`, if needed.
 #'
+#' Typically, you will not need to call this function directly, as all `build_*()`
+#' functions will run `init_site()` if needed.
+#'
+#' The only good reasons to call `init_site()` directly are the following:
+#' * If you add or modify a package logo.
+#' * If you add or modify `pkgdown/extra.scss`.
+#' * If you modify `template.bslib` variables in `_pkgdown.yml`.
+#'
 #' See `vignette("customise")` for the various ways you can customise the
 #' display of your site.
 #'
 #' # Build-ignored files
-#' We recommend using [usethis::use_pkgdown()] to build-ignore `docs/` and
+#' We recommend using [usethis::use_pkgdown_github_pages()] to build-ignore `docs/` and
 #' `_pkgdown.yml`. If use another directory, or create the site manually,
 #' you'll need to add them to `.Rbuildignore` yourself. A `NOTE` about
 #' an unexpected file during `R CMD CHECK` is an indication you have not
@@ -20,17 +28,12 @@
 #'
 #' @inheritParams build_articles
 #' @export
-init_site <- function(pkg = ".") {
-  pkg <- as_pkgdown(pkg)
-
-  if (is_non_pkgdown_site(pkg$dst_path)) {
-    cli::cli_abort(c(
-      "{.file {pkg$dst_path}} is non-empty and not built by pkgdown",
-      "!" = "Make sure it contains no important information \\
-             and use {.run pkgdown::clean_site()} to delete its contents."
-      )
-    )
-  }
+init_site <- function(pkg = ".", override = list()) {
+  # This is the only user facing function that doesn't call section_init()
+  # because section_init() can conditionally call init_site()
+  rstudio_save_all()
+  cache_cli_colours()
+  pkg <- as_pkgdown(pkg, override = override)
 
   cli::cli_rule("Initialising site")
   dir_create(pkg$dst_path)
@@ -40,8 +43,8 @@ init_site <- function(pkg = ".") {
     build_bslib(pkg)
   }
 
-  if (has_logo(pkg) && !has_favicons(pkg)) {
-    # Building favicons is expensive, so we hopefully only do it once.
+  # Building favicons is expensive, so we hopefully only do it once, locally
+  if (has_logo(pkg) && !has_favicons(pkg) && !on_ci()) {
     build_favicons(pkg)
   }
   copy_favicons(pkg)
@@ -54,13 +57,13 @@ init_site <- function(pkg = ".") {
 
 copy_assets <- function(pkg = ".") {
   pkg <- as_pkgdown(pkg)
-  template <- purrr::pluck(pkg$meta, "template", .default = list())
+  template <- config_pluck(pkg, "template")
 
   # pkgdown assets
   if (!identical(template$default_assets, FALSE)) {
     copy_asset_dir(
-      pkg, 
-      path_pkgdown(paste0("BS", pkg$bs_version, "/", "assets")), 
+      pkg,
+      path_pkgdown(paste0("BS", pkg$bs_version, "/", "assets")),
       src_root = path_pkgdown(),
       src_label = "<pkgdown>/"
     )
@@ -69,7 +72,7 @@ copy_assets <- function(pkg = ".") {
   # package assets
   if (!is.null(template$package)) {
     copy_asset_dir(
-      pkg, 
+      pkg,
       path_package_pkgdown("assets", template$package, pkg$bs_version),
       src_root = system_file(package = template$package),
       src_label = paste0("<", template$package, ">/")
@@ -95,7 +98,7 @@ copy_asset_dir <- function(pkg,
   }
 
   src_paths <- dir_ls(src_dir, recurse = TRUE)
-  src_paths <- src_paths[!fs::is_dir(src_paths)]
+  src_paths <- src_paths[!is_dir(src_paths)]
   if (!is.null(file_regexp)) {
     src_paths <- src_paths[grepl(file_regexp, path_file(src_paths))]
   }
@@ -138,7 +141,7 @@ build_site_meta <- function(pkg = ".") {
 site_meta <- function(pkg) {
   article_index <- article_index(pkg)
 
-  meta <- list(
+  yaml <- list(
     pandoc = as.character(rmarkdown::pandoc_version()),
     pkgdown = as.character(utils::packageDescription("pkgdown", fields = "Version")),
     pkgdown_sha = utils::packageDescription("pkgdown")$GithubSHA1,
@@ -146,23 +149,13 @@ site_meta <- function(pkg) {
     last_built = timestamp()
   )
 
-  if (!is.null(pkg$meta$url)) {
-    meta$urls <- list(
-      reference = paste0(pkg$meta$url, "/reference"),
-      article = paste0(pkg$meta$url, "/articles")
+  url <- config_pluck_string(pkg, "url")
+  if (!is.null(url)) {
+    yaml$urls <- list(
+      reference = paste0(url, "/reference"),
+      article = paste0(url, "/articles")
     )
   }
 
-  print_yaml(meta)
-}
-
-is_non_pkgdown_site <- function(dst_path) {
-  if (!dir_exists(dst_path)) {
-    return(FALSE)
-  }
-
-  top_level <- dir_ls(dst_path)
-  top_level <- top_level[!path_file(top_level) %in% c("CNAME", "dev", "deps")]
-
-  length(top_level) >= 1 && !"pkgdown.yml" %in% path_file(top_level)
+  print_yaml(yaml)
 }

@@ -4,23 +4,25 @@ home:
   title: Build websites for R packages
 
 authors:
+  Salim Brüggemann:
+    href: https://salim.space
   Jay Hesselberth:
     href: https://hesselberthlab.org
   Maëlle Salmon:
     href: https://masalmon.eu
   Hadley Wickham:
-    href: http://hadley.nz
+    href: https://hadley.nz
   Posit Software, PBC:
-    href: https://www.posit.co
-    html: >-
-      <img src='https://www.tidyverse.org/posit-logo.svg' alt='Posit' width='62' height='16' style="margin-bottom: 3px;" />
+    href: https://posit.co
 
 template:
   bootstrap: 5
+  light-switch: true
   bslib:
     primary: "#0054AD"
     border-radius: 0.5rem
     btn-border-radius: 0.25rem
+    danger: "#A6081A"
   includes:
     in_header:
       <script defer data-domain="pkgdown.r-lib.org,all.tidyverse.org" src="https://plausible.io/js/plausible.js"></script>
@@ -33,8 +35,10 @@ articles:
   navbar: ~
   contents:
   - customise
+  - quarto
+  - translations
+  - accessibility
   - linking
-  - search
   - metadata
 
 - title: Advanced techniques
@@ -50,36 +54,52 @@ articles:
 
 reference:
 - title: Build
-  desc:  Build a complete site or one of its components.
+
+- subtitle: Build the complete site
   contents:
   - build_site
-  - starts_with("build_")
-  - -build_site_github_pages
-  - init_site
+  - clean_site
   - preview_site
   - pkgdown_sitrep
 
-- title: Deployment
+- subtitle: Build part of a site
+  desc: These functions are useful for rapid iteration when you're working on a
+    specific part of your site.
+  contents:
+  - has_concept("site components")
+  - build_search
+  - build_redirects
+  - init_site
+
+- subtitle: Customisation
+  contents:
+  - template_navbar
+
+- title: For expert use
+
+- subtitle: Deployment
   contents:
   - starts_with("deploy_")
   - build_site_github_pages
-  - check_pkgdown
 
-- title: Templates
+- subtitle: Other helpers
   contents:
-  - template_navbar
-  - render_page
-
-- title: Helpers
-  contents:
-  - clean_site
   - rd2html
   - as_pkgdown
   - in_pkgdown
+  - render_page
+  - build_favicons
 
 - title: Regression tests
   contents:
   - starts_with("test", internal = TRUE)
+
+- title: Deprecated functions
+  contents:
+  - has_lifecycle("deprecated")
+
+redirects:
+- ["articles/search.html", "reference/build_search.html"]
 
 news:
   releases:

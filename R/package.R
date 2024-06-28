@@ -19,95 +19,81 @@ as_pkgdown <- function(pkg = ".", override = list()) {
 
   check_string(pkg)
   if (!dir_exists(pkg)) {
+    if (dir.exists(pkg)) { #nolint
+      # path expansion with fs and base R is different on Windows.
+      # By default "~/", is typically C:/Users/username/Documents, while fs see "~/" as C:/Users/username, to be more platform portable.
+      # Read more in ?fs::path_expand
+      cli::cli_abort(
+      "pkgdown accepts {.href [fs paths](https://fs.r-lib.org/reference/path_expand.html#details)}."
+      )
+    }
     cli::cli_abort("{.file {pkg}} is not an existing directory")
   }
 
-  desc <- read_desc(pkg)
-  meta <- read_meta(pkg)
+  if (!dir.exists(pkg)) { #nolint
+    # Use complete path if fs path doesn't exist according to base R #2639
+    pkg <- path_expand(pkg)
+  }
+
+  src_path <- pkg
+
+  desc <- read_desc(src_path)
+  meta <- read_meta(src_path)
   meta <- modify_list(meta, override)
 
-  # A local Bootstrap version, when provided, may drive the template choice
-  bs_version_local <- get_bootstrap_version(
-    template = meta$template,
-    pkg = list(src_path = pkg)
+  # Create a partial pkgdown object so we can use config_pluck_* functions
+  pkg <- list(
+    package = desc$get_field("Package"),
+    version = desc$get_field("Version"),
+    src_path = path_abs(src_path),
+
+    meta = meta,
+    desc = desc
   )
+  class(pkg) <- "pkgdown"
 
-  template_config <- find_template_config(
-    package = meta$template$package,
-    bs_version = bs_version_local
-  )
+  # If boostrap version set locally, it drives the template choice
+  # But if it's not set locally, the template may have a default
+  template <- config_pluck_list(pkg, "template")
+  template_package <- config_pluck_string(pkg, "template.package")
 
-  bs_version_template <-
-    if (is.null(bs_version_local)) {
-      get_bootstrap_version(
-        template = template_config$template,
-        pkg = list(src_path = pkg),
-        package = meta$template$package
-      )
-    }
+  bs_version_local <- get_bootstrap_version(pkg, pkg$meta$template)
+  template_meta <- find_template_config(template_package, bs_version_local)
 
-  meta <- modify_list(template_config, meta)
+  if (is.null(bs_version_local)) {
+    bs_version_remote <- get_bootstrap_version(pkg, template_meta$template, template_package)
+  } else {
+    bs_version_remote <- NULL
+  }
+  bs_version <- bs_version_local %||% bs_version_remote %||% 3
+  check_bootstrap_version(bs_version, error_pkg = pkg)
+  pkg$bs_version <- bs_version
+
+  pkg$meta <- modify_list(template_meta, pkg$meta)
 
   # Ensure the URL has no trailing slash
-  if (!is.null(meta[["url"]])) {
-    meta[["url"]] <- sub("/$", "", meta[["url"]])
+  if (!is.null(pkg$meta$url)) {
+    pkg$meta$url <- sub("/$", "", pkg$meta$url)
+  }
+  
+  pkg$development <- meta_development(pkg)
+  pkg$prefix <- pkg$development$prefix
+
+  dest <- config_pluck_string(pkg, "destination")
+  pkg$dst_path <- path_abs(dest %||% "docs", start = src_path)
+  if (pkg$development$in_dev) {
+    pkg$dst_path <- path(pkg$dst_path, pkg$development$destination)
   }
 
-  package <- desc$get_field("Package")
-  version <- desc$get_field("Version")
+  pkg$lang <- pkg$meta$lang %||% "en"
+  pkg$install_metadata <- config_pluck_bool(pkg, "deploy.install_metadata", FALSE)
+  pkg$figures <- meta_figures(pkg)
+  pkg$repo <- package_repo(pkg)
+  pkg$topics <- package_topics(src_path)
+  pkg$tutorials <- package_tutorials(src_path, meta)
+  pkg$vignettes <- package_vignettes(src_path)
 
-  # Check the final Bootstrap version, possibly filled in by template pkg
-  bs_version <- check_bootstrap_version(
-    bs_version_local %||% bs_version_template,
-    pkg = list(src_path = pkg)
-  )
-
-  development <- meta_development(meta, version, bs_version)
-
-  if (is.null(meta$destination)) {
-    dst_path <- path(pkg, "docs")
-  } else {
-    dst_path <- path_abs(meta$destination, start = pkg)
-  }
-
-  if (development$in_dev) {
-    dst_path <- path(dst_path, development$destination)
-  }
-
-  install_metadata <- meta$deploy$install_metadata %||% FALSE
-
-  pkg_list <- list(
-      package = package,
-      version = version,
-      lang = meta$lang %||% "en",
-
-      src_path = path_abs(pkg),
-      dst_path = path_abs(dst_path),
-      install_metadata = install_metadata,
-
-      desc = desc,
-      meta = meta,
-      figures = meta_figures(meta),
-      repo = package_repo(desc, meta),
-
-      development = development,
-      topics = package_topics(pkg, package),
-      tutorials = package_tutorials(pkg, meta),
-      vignettes = package_vignettes(pkg),
-      bs_version = bs_version
-    )
-  pkg_list$prefix <- ""
-  if (pkg_list$development$in_dev) {
-    pkg_list$prefix <- paste0(
-      meta_development(pkg_list$meta, pkg_list$version)$destination,
-      "/"
-    )
-  }
-
-  structure(
-    pkg_list,
-    class = "pkgdown"
-  )
+  pkg
 }
 
 is_pkgdown <- function(x) inherits(x, "pkgdown")
@@ -120,7 +106,10 @@ read_desc <- function(path = ".") {
   desc::description$new(path)
 }
 
-get_bootstrap_version <- function(template, package = NULL, pkg) {
+get_bootstrap_version <- function(pkg,
+                                  template,
+                                  template_package = NULL,
+                                  call = caller_env()) {
   if (is.null(template)) {
     return(NULL)
   }
@@ -129,45 +118,42 @@ get_bootstrap_version <- function(template, package = NULL, pkg) {
   template_bslib <- template[["bslib"]][["version"]]
 
   if (!is.null(template_bootstrap) && !is.null(template_bslib)) {
-    if (!is.null(package)) {
-      hint <- "Specified locally and in template package {.pkg {package}}."
+    if (!is.null(template_package)) {
+      hint <- "Specified locally and in template package {.pkg {template_package}}."
     } else {
       hint <- NULL
     }
 
-    config_abort(
-      pkg,
-      c(
-        "Must set one only of {.field template.bootstrap} and {.field template.bslib.version}.",
-        i = hint
-      ),
-      call = caller_env()
-    )
+    msg <- "must set only one of {.field template.bootstrap} and {.field template.bslib.version}."
+    config_abort(pkg, c(msg, i = hint), call = call)
   }
 
   template_bootstrap %||% template_bslib
 }
 
-check_bootstrap_version <- function(version, pkg) {
-  if (is.null(version)) {
-    3
-  } else if (version %in% c(3, 5)) {
+check_bootstrap_version <- function(version, error_pkg, error_call = caller_env()) {
+  if (version %in% c(3, 5)) {
     version
   } else if (version == 4) {
-    cli::cli_warn("{.var bootstrap: 4} no longer supported, using {.var bootstrap: 5} instead")
+    msg <- c(
+      "{.var template.bootstrap: 4} no longer supported",
+      i = "Using {.var template.bootstrap: 5} instead"
+    )
+    config_warn(error_pkg, msg, call = error_call)
     5
   } else {
-    config_abort(
-      pkg,
-      "{.field template.bootstrap} must be 3 or 5, not {.val {version}}.",
-      call = caller_env()
-    )
+    msg <- "{.field template.bootstrap} must be 3 or 5, not {.val {version}}."
+    config_abort(error_pkg, msg, error_call = caller_env())
   }
 }
 
 # Metadata ----------------------------------------------------------------
 
 pkgdown_config_path <- function(path) {
+  if (is_pkgdown(path)) {
+    path <- path$src_path
+  }
+
   path_first_existing(
     path,
     c(
@@ -178,21 +164,29 @@ pkgdown_config_path <- function(path) {
   )
 }
 
-read_meta <- function(path) {
+read_meta <- function(path, call = caller_env()) {
   path <- pkgdown_config_path(path)
 
   if (is.null(path)) {
     yaml <- list()
   } else {
-    yaml <- yaml::yaml.load_file(path) %||% list()
+    yaml <- withCallingHandlers(
+      yaml::yaml.load_file(path, error.label = NULL) %||% list(),
+      error = function(e) {
+        cli::cli_abort(
+          "Could not parse config file at {.path {path}}.",
+          call = call,
+          parent = e
+        )
+      }
+    )
   }
-
   yaml
 }
 
 # Topics ------------------------------------------------------------------
 
-package_topics <- function(path = ".", package = "pkgdown") {
+package_topics <- function(path = ".") {
   # Needed if title contains sexpr
   local_context_eval()
 
@@ -205,6 +199,7 @@ package_topics <- function(path = ".", package = "pkgdown") {
   keywords <- unname(purrr::map(rd, extract_tag, "tag_keyword"))
   internal <- purrr::map_lgl(keywords, ~ "internal" %in% .)
   source <- purrr::map(rd, extract_source)
+  lifecycle <- unname(purrr::map(rd, extract_lifecycle))
 
   file_in <- names(rd)
   file_out <- rd_output_path(file_in)
@@ -222,7 +217,8 @@ package_topics <- function(path = ".", package = "pkgdown") {
     source = source,
     keywords = keywords,
     concepts = concepts,
-    internal = internal
+    internal = internal,
+    lifecycle = lifecycle
   )
 }
 
@@ -245,16 +241,12 @@ package_rd <- function(path = ".") {
 }
 
 extract_tag <- function(x, tag) {
-  x %>%
-    purrr::keep(inherits, tag) %>%
-    purrr::map_chr(c(1, 1))
+  purrr::map_chr(purrr::keep(x, inherits, tag), c(1, 1))
 }
 
 extract_title <- function(x) {
-  x %>%
-    purrr::detect(inherits, "tag_title") %>%
-    flatten_text(auto_link = FALSE) %>%
-    str_squish()
+  title <- purrr::detect(x, inherits, "tag_title")
+  str_squish(flatten_text(title, auto_link = FALSE))
 }
 
 extract_source <- function(x) {
@@ -273,6 +265,45 @@ extract_source <- function(x) {
   regmatches(text, m)[[1]]
 }
 
+extract_lifecycle <- function(x) {
+  desc <- purrr::keep(x, inherits, "tag_description")
+  fig <- extract_figure(desc)
+
+  if (!is.null(fig) && length(fig) > 0 && length(fig[[1]]) > 0) {
+    path <- as.character(fig[[1]][[1]])  
+    if (grepl("lifecycle", path)) {
+      name <- gsub("lifecycle-", "", path)
+      name <- path_ext_remove(name)
+
+      # Translate the most common lifecylce names
+      name <- switch(name,
+        deprecated = tr_("deprecated"),
+        superseded = tr_("superseded"),
+        experimental = tr_("experimental"),
+        stable = tr_("stable"),
+        name
+      )
+
+      return(name)
+    }
+  }
+  NULL
+}
+
+extract_figure <- function(elements) {
+  for (element in elements) {
+    if (inherits(element, "tag_figure")) {
+      return(element)
+    } else if (inherits(element, "tag")) {
+      child <- extract_figure(element)
+      if (!is.null(child)) {
+        return(child)
+      }
+    }
+  }
+  NULL
+}
+
 # Vignettes ---------------------------------------------------------------
 
 package_vignettes <- function(path = ".") {
@@ -288,11 +319,12 @@ package_vignettes <- function(path = ".") {
   vig_path <- vig_path[!grepl("^_", path_file(vig_path))]
   vig_path <- vig_path[!grepl("^tutorials", path_dir(vig_path))]
 
-  yaml <- purrr::map(path(base, vig_path), rmarkdown::yaml_front_matter)
-  title <- purrr::map_chr(yaml, list("title", 1), .default = "UNKNOWN TITLE")
-  desc <- purrr::map_chr(yaml, list("description", 1), .default = NA_character_)
-  ext <- purrr::map_chr(yaml, c("pkgdown", "extension"), .default = "html")
-  title[ext == "pdf"] <- paste0(title[ext == "pdf"], " (PDF)")
+  type <- tolower(path_ext(vig_path))
+
+  meta <- purrr::map(path(base, vig_path), article_metadata)
+  title <- purrr::map_chr(meta, "title")
+  desc <- purrr::map_chr(meta, "desc")
+  ext <- purrr::map_chr(meta, "ext")
 
   # Vignettes will be written to /articles/ with path relative to vignettes/
   # *except* for vignettes in vignettes/articles, which are moved up a level
@@ -304,14 +336,41 @@ package_vignettes <- function(path = ".") {
   check_unique_article_paths(file_in, file_out)
 
   out <- tibble::tibble(
-    name = path_ext_remove(vig_path),
-    file_in = file_in,
-    file_out = file_out,
+    name = as.character(path_ext_remove(vig_path)),
+    type = type,
+    file_in = as.character(file_in),
+    file_out = as.character(file_out),
     title = title,
     description = desc,
     depth = dir_depth(file_out)
   )
-  out[order(basename(out$file_out)), ]
+  out[order(path_file(out$file_out)), ]
+}
+
+article_metadata <- function(path) {
+  if (path_ext(path) == "qmd") {
+    inspect <- quarto::quarto_inspect(path)
+    meta <- inspect$formats[[1]]$metadata
+  
+    out <- list(
+      title = meta$title %||% "UNKNOWN TITLE",
+      desc = meta$description %||% NA_character_,
+      ext = path_ext(inspect$formats[[1]]$pandoc$`output-file`) %||% "html"
+    )  
+  } else {
+    yaml <- rmarkdown::yaml_front_matter(path)
+    out <- list(
+      title = yaml$title[[1]] %||% "UNKNOWN TITLE",
+      desc = yaml$description[[1]] %||% NA_character_,
+      ext = yaml$pkgdown$extension %||% "html"
+    )
+  }
+
+  if (out$ext == "pdf") {
+    out$title <- paste0(out$title, " (PDF)")
+  }
+
+  out
 }
 
 find_template_config <- function(package,

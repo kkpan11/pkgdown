@@ -26,9 +26,10 @@
 #'   url: https://jjallaire.shinyapps.io/learnr-tutorial-01-data-basics/
 #' ```
 #' @inheritParams build_articles
+#' @family site components
 #' @export
-build_tutorials <- function(pkg = ".", override = list(), preview = NA) {
-  pkg <- section_init(pkg, depth = 1L, override = override)
+build_tutorials <- function(pkg = ".", override = list(), preview = FALSE) {
+  pkg <- section_init(pkg, "tutorials", override = override)
 
   tutorials <- pkg$tutorials
 
@@ -37,7 +38,6 @@ build_tutorials <- function(pkg = ".", override = list(), preview = NA) {
   }
 
   cli::cli_rule("Building tutorials")
-  create_subdir(pkg, "tutorials")
 
   data <- purrr::transpose(tutorials)
 
@@ -100,15 +100,15 @@ find_tutorials <- function(path = ".") {
 }
 
 tutorial_info <- function(path, base_path) {
-  meta <- rmarkdown::yaml_front_matter(path)
-  title <- meta$title
+  yaml <- rmarkdown::yaml_front_matter(path)
+  title <- yaml$title
   if (is.null(title)) {
     return()
   }
 
   # Must have "runtime: shiny". Partial implementation of full algorithm:
   # https://github.com/rstudio/rmarkdown/blob/master/R/shiny.R#L72-L100
-  runtime <- meta$runtime
+  runtime <- yaml$runtime
   if (is.null(runtime) || !grepl("^shiny", runtime)) {
     return()
   }
@@ -126,7 +126,7 @@ tutorial_info <- function(path, base_path) {
 
   list(
     name = as.character(path_ext_remove(path_file(path))),
-    title = meta$title,
+    title = yaml$title,
     url = url
     # source = as.character(path_rel(path, base_path))
   )

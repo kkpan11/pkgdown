@@ -80,8 +80,10 @@
 #'    captured by `has_concepts()`.
 #' * Topics from other installed packages, e.g. `rlang::is_installed()` (function name)
 #'  or `sass::font_face` (topic name).
+#' * `has_lifecycle("deprecated")` will select all topics with lifecycle 
+#'   deprecated.
 #'
-#' All functions (except for `has_keywords()`) automatically exclude internal
+#' All functions (except for `has_keyword()`) automatically exclude internal
 #' topics (i.e. those with `\keyword{internal}`). You can choose to include
 #' with (e.g.) `starts_with("build_", internal = TRUE)`.
 #'
@@ -134,6 +136,7 @@
 #' as HTML widgets.
 #'
 #' @inheritParams build_articles
+#' @family site components
 #' @param lazy If `TRUE`, only rebuild pages where the `.Rd`
 #'   is more recent than the `.html`. This makes it much easier to
 #'   rapidly prototype. It is set to `FALSE` by [build_site()].
@@ -143,7 +146,6 @@
 #'   If `TRUE` (the default), assumes you are in a live development
 #'   environment, and loads source package with [pkgload::load_all()].
 #'   If `FALSE`, uses the installed version of the package.
-#' @param document **Deprecated** Use `devel` instead.
 #' @param topics Build only specified topics. If supplied, sets `lazy`
 #'   and `preview` to `FALSE`.
 #' @export
@@ -153,26 +155,16 @@ build_reference <- function(pkg = ".",
                             run_dont_run = FALSE,
                             seed = 1014L,
                             override = list(),
-                            preview = NA,
+                            preview = FALSE,
                             devel = TRUE,
-                            document = "DEPRECATED",
                             topics = NULL) {
-  pkg <- section_init(pkg, depth = 1L, override = override)
+  pkg <- section_init(pkg, "reference", override = override)
   check_bool(lazy)
   check_bool(examples)
   check_bool(run_dont_run)
   check_number_whole(seed, allow_null = TRUE)
   check_bool(devel)
   check_character(topics, allow_null = TRUE)
-
-  if (document != "DEPRECATED") {
-    lifecycle::deprecate_warn(
-      "1.4.0",
-      "build_site(document)",
-      details = "build_site(devel)"
-    )
-    devel <- document
-  }
 
   cli::cli_rule("Building function reference")
   build_reference_index(pkg)
@@ -200,7 +192,7 @@ build_reference <- function(pkg = ".",
     lazy = lazy,
     examples_env = examples_env,
     run_dont_run = run_dont_run
-  )) 
+  ))
 
   preview_site(pkg, "reference", preview = preview)
 }
@@ -230,7 +222,7 @@ examples_env <- function(pkg, seed = 1014L, devel = TRUE, envir = parent.frame()
   post_path <- path_abs(path(pkg$src_path, "pkgdown", "post-reference.R"))
 
   withr::local_dir(path(pkg$dst_path, "reference"), .local_envir = envir)
-  width <- purrr::pluck(pkg, "meta", "code", "width", .default = 80)
+  width <- config_pluck_number_whole(pkg, "code.width", default = 80)
   withr::local_options(width = width, .local_envir = envir)
   withr::local_seed(seed, .local_envir = envir)
   if (requireNamespace("htmlwidgets", quietly = TRUE)) {
@@ -250,9 +242,8 @@ examples_env <- function(pkg, seed = 1014L, devel = TRUE, envir = parent.frame()
 
 #' @export
 #' @rdname build_reference
-build_reference_index <- function(pkg = ".") {
-  pkg <- section_init(pkg, depth = 1L)
-  create_subdir(pkg, "reference")
+build_reference_index <- function(pkg = ".", override = list()) {
+  pkg <- section_init(pkg, "reference", override = override)
 
   # Copy icons, if needed
   dir_copy_to(
@@ -295,7 +286,7 @@ build_reference_topic <- function(topic,
     ),
     error = function(err) {
       cli::cli_abort(
-        "Failed to parse Rd in {.file {topic$file_in}}", 
+        "Failed to parse Rd in {.file {topic$file_in}}",
         parent = err,
         call = quote(build_reference())
       )
@@ -310,13 +301,13 @@ build_reference_topic <- function(topic,
     deps <- purrr::map(
       deps,
       htmltools::copyDependencyToDir,
-      outputDir = file.path(pkg$dst_path, "reference", "libs"),
+      outputDir = path(pkg$dst_path, "reference", "libs"),
       mustWork = FALSE
     )
     deps <- purrr::map(
       deps,
       htmltools::makeDependencyRelative,
-      basepath = file.path(pkg$dst_path, "reference"),
+      basepath = path(pkg$dst_path, "reference"),
       mustWork = FALSE
     )
     data$dependencies <- htmltools::renderDependencies(deps, c("file", "href"))
@@ -392,16 +383,12 @@ data_reference_topic <- function(topic,
     "seealso", "section", "author"
   ))
   sections <- topic$rd[tag_names %in% section_tags]
-  out$sections <- sections %>%
-    purrr::map(as_data) %>%
-    purrr::map(add_slug)
-
+  out$sections <- purrr::map(sections, function(section) {
+    data <- as_data(section)
+    data$slug <- make_slug(data$title)
+    data
+  })
   out
-}
-
-add_slug <- function(x) {
-  x$slug <- make_slug(x$title)
-  x
 }
 
 make_slug <- function(x) {
