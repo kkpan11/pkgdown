@@ -1,3 +1,10 @@
+# converts Rd unicode shortcuts
+
+    Code
+      rd2html("``a -- b --- c''")
+    Output
+      [1] "“a – b — c”"
+
 # subsection generates h3
 
     Code
@@ -31,6 +38,14 @@
       
       </div>
       </div>
+
+# Sexprs in file share environment
+
+    Code
+      rd2html("\\Sexpr{x}")
+    Condition
+      Error:
+      ! object 'x' not found
 
 # bad specs throw errors
 

@@ -1,10 +1,28 @@
-# url_node gives informative error
+# build_search_index() has expected structure
 
     Code
-      url_node("<")
-    Condition
-      Error in `url_node()`:
-      ! Failed to wrap URL "<"
-      Caused by error in `read_xml.raw()`:
-      ! StartTag: invalid element name [68]
+      str(build_search_index(pkg))
+    Output
+      List of 1
+       $ :List of 8
+        ..$ path             : chr "https://example.com/index.html"
+        ..$ id               : chr "my-package"
+        ..$ dir              : chr ""
+        ..$ previous_headings: chr ""
+        ..$ what             : chr "A test package"
+        ..$ title            : chr "A test package"
+        ..$ text             : chr "pakage "
+        ..$ code             : chr ""
+
+# build sitemap only messages when it updates
+
+    Code
+      build_sitemap(pkg)
+    Message
+      -- Building sitemap ------------------------------------------------------------
+      Writing `sitemap.xml`
+    Code
+      build_sitemap(pkg)
+    Message
+      -- Building sitemap ------------------------------------------------------------
 

@@ -28,11 +28,37 @@ highlight_examples <- function(code, topic, env = globalenv()) {
     do.call(fig_save, c(list(plot, name), fig_settings()))
   }
 
+  hide_dontshow <- function(src, expr) {
+    if (is.expression(expr)) {
+      # evaluate 1.0.0
+      if (length(expr) > 0) {
+        hide <- is_call(expr[[1]], c("DONTSHOW", "TESTONLY"))
+      } else {
+        hide <- FALSE
+      }
+    } else if (is.call(expr)) {
+      # evaluate 0.24.0
+      hide <- is_call(expr, c("DONTSHOW", "TESTONLY"))
+    } else {
+      hide <- FALSE
+    }
+
+    if (hide) NULL else src
+  }
+  handler <- evaluate::new_output_handler(
+    value = pkgdown_print,
+    source = hide_dontshow
+  )
+
+  eval_env <- child_env(env)
+  eval_env$DONTSHOW <- function(x) invisible(x)
+  eval_env$TESTONLY <- function(x) invisible()
+
   out <- downlit::evaluate_and_highlight(
     code,
     fig_save = fig_save_topic,
-    env = child_env(env),
-    output_handler = evaluate::new_output_handler(value = pkgdown_print)
+    env = eval_env,
+    output_handler = handler
   )
   structure(
     sourceCode(pre(out, r_code = TRUE)),
@@ -42,9 +68,13 @@ highlight_examples <- function(code, topic, env = globalenv()) {
 
 pre <- function(x, r_code = FALSE) {
   paste0(
-    "<pre", if (r_code) " class='sourceCode r'", ">", "<code>",
+    "<pre",
+    if (r_code) " class='sourceCode r'",
+    ">",
+    "<code>",
     x,
-    "</code>","</pre>"
+    "</code>",
+    "</pre>"
   )
 }
 

@@ -1,0 +1,25 @@
+# we find out if quarto styles change
+
+    Code
+      cat(data$includes$style)
+    Output
+      
+          /* Default styles provided by pandoc.
+          ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+          */
+          span.smallcaps{font-variant: small-caps;}
+          div.columns{display: flex; gap: 1.5em;}
+          div.column{flex: auto;}
+          @media screen {
+          div.columns{gap: min(4vw, 1.5em);}
+          div.column{overflow-x: auto;}
+          }
+          div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+          ul.task-list{list-style: none;}
+          ul.task-list li input[type="checkbox"] {
+            width: 0.8em;
+            margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+            vertical-align: middle;
+          }
+        
+

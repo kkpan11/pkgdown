@@ -4,7 +4,7 @@
 \alias{preview_site}
 \title{Open site in browser}
 \usage{
-preview_site(pkg = ".", path = ".", preview = NA)
+preview_site(pkg = ".", path = ".", preview = TRUE)
 }
 \arguments{
 \item{pkg}{Path to package.}
@@ -15,5 +15,10 @@ preview_site(pkg = ".", path = ".", preview = NA)
 freshly generated section in browser.}
 }
 \description{
-Open site in browser
+\code{preview_site()} opens your pkgdown site in your browser, served via a
+local HTTP server. This enables dynamic features such as search to work
+correctly in preview.
+}
+\seealso{
+\code{\link[=stop_preview]{stop_preview()}} to stop the server.
 }

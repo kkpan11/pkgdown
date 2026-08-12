@@ -1,28 +1,18 @@
-set_contains <- function(haystack, needles) {
-  all(needles %in% haystack)
-}
-
-split_at_linebreaks <- function(text) {
-  if (length(text) < 1)
-    return(character())
-  strsplit(text, "\\n\\s*\\n")[[1]]
-}
-
 up_path <- function(depth) {
   paste(rep.int("../", depth), collapse = "")
 }
 
 dir_depth <- function(x) {
-  x %>%
-    strsplit("") %>%
-    purrr::map_int(function(x) sum(x == "/"))
+  # length(strsplit(path, "/")[[1]]) - 1L
+  purrr::map_int(strsplit(x, ""), function(x) sum(x == "/"))
 }
 
 invert_index <- function(x) {
   stopifnot(is.list(x))
 
-  if (length(x) == 0)
+  if (length(x) == 0) {
     return(list())
+  }
 
   key <- rep(names(x), purrr::map_int(x, length))
   val <- unlist(x, use.names = FALSE)
@@ -38,6 +28,10 @@ rstudio_save_all <- function() {
 
 is_syntactic <- function(x) x == make.names(x)
 
+auto_quote <- function(x) {
+  ifelse(is_syntactic(x), x, paste0("`", x, "`"))
+}
+
 str_trim <- function(x) gsub("^\\s+|\\s+$", "", x)
 
 str_squish <- function(x) str_trim(gsub("\\s+", " ", x))
@@ -49,6 +43,10 @@ unwrap_purrr_error <- function(code) {
       cnd_signal(err$parent)
     }
   )
+}
+
+tr_ <- function(...) {
+  enc2utf8(gettext(..., domain = "R-pkgdown"))
 }
 
 # devtools metadata -------------------------------------------------------
@@ -69,35 +67,21 @@ devtools_meta <- function(x) {
 # CLI ---------------------------------------------------------------------
 
 dst_path <- cli::combine_ansi_styles(
-  cli::style_bold, cli::col_cyan
+  cli::style_bold,
+  cli::col_cyan
 )
 
 src_path <- cli::combine_ansi_styles(
-  cli::style_bold, cli::col_green
+  cli::style_bold,
+  cli::col_green
 )
 
 writing_file <- function(path, show) {
   path <- as.character(path)
   text <- dst_path(as.character(show))
-  cli::cli_inform("Writing {.run [{text}](pkgdown::preview_page('{path}'))}")
-}
-
-skip_if_no_pandoc <- function(version = "1.12.3") {
-  testthat::skip_if_not(rmarkdown::pandoc_available(version))
-}
-
-has_internet <- function() {
-  return(getOption("pkgdown.internet", default = TRUE))
-}
-
-# remove '' quoting
-# e.g. 'title' becomes title.s
-cran_unquote <- function(string) {
-  gsub("\\'(.*?)\\'", "\\1", string)
-}
-
-isFALSE <- function(x) {
-  is.logical(x) && length(x) == 1L && !is.na(x) && !x
+  cli::cli_inform(
+    "Writing {.run [{text}](pkgdown::preview_site(path='{path}'))}"
+  )
 }
 
 modify_list <- function(x, y) {
@@ -112,36 +96,33 @@ modify_list <- function(x, y) {
 
 # from https://github.com/r-lib/rematch2/blob/8098bd06f251bfe0f20c0598d90fc20b741d13f8/R/package.R#L47
 re_match <- function(text, pattern, perl = TRUE, ...) {
-
   stopifnot(is.character(pattern), length(pattern) == 1, !is.na(pattern))
   text <- as.character(text)
 
   match <- regexpr(pattern, text, perl = perl, ...)
 
-  start  <- as.vector(match)
+  start <- as.vector(match)
   length <- attr(match, "match.length")
-  end    <- start + length - 1L
+  end <- start + length - 1L
 
   matchstr <- substring(text, start, end)
-  matchstr[ start == -1 ] <- NA_character_
+  matchstr[start == -1] <- NA_character_
 
   res <- data.frame(
-    stringsAsFactors = FALSE,
     .text = text,
     .match = matchstr
   )
 
   if (!is.null(attr(match, "capture.start"))) {
-
-    gstart  <- attr(match, "capture.start")
+    gstart <- attr(match, "capture.start")
     glength <- attr(match, "capture.length")
-    gend    <- gstart + glength - 1L
+    gend <- gstart + glength - 1L
 
     groupstr <- substring(text, gstart, gend)
-    groupstr[ gstart == -1 ] <- NA_character_
+    groupstr[gstart == -1] <- NA_character_
     dim(groupstr) <- dim(gstart)
 
-    res <- cbind(groupstr, res, stringsAsFactors = FALSE)
+    res <- cbind(groupstr, res)
   }
 
   names(res) <- c(attr(match, "capture.names"), ".text", ".match")
@@ -164,7 +145,7 @@ ruler <- function(width = getOption("width")) {
   x <- seq_len(width)
   y <- rep("-", length(x))
   y[x %% 5 == 0] <- "+"
-  y[x %% 10 == 0] <- (x[x%%10 == 0] %/% 10) %% 10
+  y[x %% 10 == 0] <- (x[x %% 10 == 0] %/% 10) %% 10
   cat(y, "\n", sep = "")
   cat(x %% 10, "\n", sep = "")
 }
@@ -172,13 +153,18 @@ ruler <- function(width = getOption("width")) {
 get_section_level <- function(section) {
   class <- xml2::xml_attr(section, "class")
 
-  has_level <- grepl("level(\\d+)", class)
-  ifelse(has_level, as.numeric(gsub(".*section level(\\d+).*", '\\1', class)), 0)
+  level <- as.numeric(re_match(class, "level(\\d+)")[[1]])
+  level[is.na(level)] <- 0
+  level
 }
 
 section_id <- function(section) {
   h <- xml2::xml_find_first(section, ".//h1|.//h2|.//h3|.//h4|.//h5|.//h6")
   xml2::xml_attr(h, "id")
+}
+
+on_ci <- function() {
+  isTRUE(as.logical(Sys.getenv("CI", "false")))
 }
 
 # yaml ------------------------------------------------------------
@@ -192,17 +178,43 @@ print.print_yaml <- function(x, ...) {
 }
 
 write_yaml <- function(x, path) {
-  write_lines(yaml::as.yaml(x), path = path)
+  yaml::write_yaml(
+    x,
+    path,
+    handlers = list(logical = yaml::verbatim_logical)
+  )
 }
 
 # Helpers for testing -----------------------------------------------------
 
-xpath_xml <- function(x, xpath) {
-  x <- xml2::xml_find_all(x, xpath)
+xpath_xml <- function(x, xpath = NULL) {
+  if (!is.null(xpath)) {
+    x <- xml2::xml_find_all(x, xpath)
+  }
   structure(x, class = c("pkgdown_xml", class(x)))
 }
+xpath_contents <- function(x, xpath) {
+  x <- xml2::xml_find_all(x, xpath)
+
+  contents <- xml2::xml_contents(x)
+  if (length(contents) == 0) {
+    NULL
+  } else {
+    xml2str(contents)
+  }
+}
+xml2str <- function(x) {
+  strings <- as.character(x, options = c("format", "no_declaration"))
+  paste0(strings, collapse = "")
+}
+
 xpath_attr <- function(x, xpath, attr) {
-  gsub("\r", "", xml2::xml_attr(xml2::xml_find_all(x, xpath), attr), fixed = TRUE)
+  gsub(
+    "\r",
+    "",
+    xml2::xml_attr(xml2::xml_find_all(x, xpath), attr),
+    fixed = TRUE
+  )
 }
 xpath_text <- function(x, xpath, trim = FALSE) {
   xml2::xml_text(xml2::xml_find_all(x, xpath), trim = trim)
@@ -216,6 +228,8 @@ print.pkgdown_xml <- function(x, ...) {
   invisible(x)
 }
 
-tr_ <- function(...) {
-  enc2utf8(gettext(..., domain = "R-pkgdown"))
+cli_escape <- function(x) {
+  x <- gsub("{", "{{", x, fixed = TRUE)
+  x <- gsub("}", "}}", x, fixed = TRUE)
+  x
 }

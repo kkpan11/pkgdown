@@ -10,7 +10,7 @@
     <ul class="list-unstyled">
       {{#authors}}
       <li>
-        <p><strong>{{{name}}}</strong>. {{{roles}}}. {{{orcid}}}
+        <p><strong>{{{name}}}</strong>. {{{roles}}}. {{{orcid}}}{{{ror}}}
         {{#comment}}<br /><small>{{{.}}}</small>{{/comment}}</p>
       </li>
       {{/authors}}
@@ -20,7 +20,7 @@
   </main>
 
   <aside class="col-md-3">
-    <nav id="toc">
+    <nav id="toc" aria-label="{{#translate}}{{toc}}{{/translate}}">
       <h2>{{#translate}}{{on_this_page}}{{/translate}}</h2>
     </nav>
   </aside>

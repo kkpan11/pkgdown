@@ -4,4 +4,4 @@
 
 ## revdepcheck results
 
-I checked all 139 revdeps and did not see any problems.
+This is a minor patch release which should not affect revdeps.

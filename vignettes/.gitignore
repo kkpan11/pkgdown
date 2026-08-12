@@ -2,3 +2,7 @@
 *.R
 *.log
 *_files
+
+/.quarto/
+
+**/*.quarto_ipynb

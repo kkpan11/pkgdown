@@ -16,20 +16,28 @@
 #' @inheritParams deploy_to_branch
 #' @param dest_dir Directory to build site in.
 #' @export
-build_site_github_pages <- function(pkg = ".",
-                                    ...,
-                                    dest_dir = "docs",
-                                    clean = TRUE,
-                                    install = FALSE,
-                                    new_process = FALSE) {
- pkg <- as_pkgdown(pkg, override = list(destination = dest_dir))
+build_site_github_pages <- function(
+  pkg = ".",
+  ...,
+  dest_dir = "docs",
+  clean = TRUE,
+  install = FALSE,
+  new_process = FALSE
+) {
+  pkg <- as_pkgdown(pkg, override = list(destination = dest_dir))
 
   if (clean) {
     cli::cli_rule("Cleaning files from old site")
     clean_site(pkg)
   }
 
-  build_site(pkg, preview = FALSE, install = install, new_process = new_process, ...)
+  build_site(
+    pkg,
+    preview = FALSE,
+    install = install,
+    new_process = new_process,
+    ...
+  )
   build_github_pages(pkg)
 
   invisible()
@@ -43,7 +51,7 @@ build_github_pages <- function(pkg = ".") {
   write_if_different(pkg, "", ".nojekyll", check = FALSE)
 
   # Add CNAME if url present
-  cname <- cname_url(pkg$meta$url)
+  cname <- cname_url(config_pluck_string(pkg, "url"))
   if (is.null(cname)) {
     return(invisible())
   }
@@ -53,12 +61,14 @@ build_github_pages <- function(pkg = ".") {
 }
 
 cname_url <- function(url) {
-  if (is.null(url))
+  if (is.null(url)) {
     return(NULL)
+  }
 
   pieces <- xml2::url_parse(url)
-  if (!pieces$path %in% c("", "/"))
+  if (!pieces$path %in% c("", "/")) {
     return(NULL)
+  }
 
   pieces$server
 }

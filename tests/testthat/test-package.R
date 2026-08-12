@@ -3,7 +3,6 @@ test_that("is_pkgdown checks its inputs", {
     as_pkgdown(1)
     as_pkgdown(override = 1)
   })
-
 })
 
 test_that("package_vignettes() doesn't trip over directories", {
@@ -11,19 +10,22 @@ test_that("package_vignettes() doesn't trip over directories", {
   dir_create(path(dir, "vignettes", "test.Rmd"))
   file_create(path(dir, "vignettes", "test2.Rmd"))
 
-  expect_equal(as.character(package_vignettes(dir)$file_in), "vignettes/test2.Rmd")
+  expect_equal(
+    as.character(package_vignettes(dir)$file_in),
+    "vignettes/test2.Rmd"
+  )
 })
 
 test_that("check_bootstrap_version() allows 3, 4 (with warning), and 5", {
-  expect_equal(check_bootstrap_version(3), 3)
-  expect_warning(expect_equal(check_bootstrap_version(4), 5))
-  expect_equal(check_bootstrap_version(5), 5)
+  pkg <- local_pkgdown_site()
+
+  expect_equal(check_bootstrap_version(3, pkg), 3)
+  expect_snapshot(expect_equal(check_bootstrap_version(4, pkg), 5))
+  expect_equal(check_bootstrap_version(5, pkg), 5)
 })
 
 test_that("check_bootstrap_version() gives informative error otherwise", {
-  pkg <- local_pkgdown_site(test_path("assets/articles"))
-  file_touch(file.path(pkg$src_path, "_pkgdown.yml"))
-
+  pkg <- local_pkgdown_site()
   expect_snapshot(check_bootstrap_version(1, pkg), error = TRUE)
 })
 
@@ -43,32 +45,35 @@ test_that("package_vignettes() detects conflicts in final article paths", {
   file_create(path(dir, "vignettes", "test.Rmd"))
   file_create(path(dir, "vignettes", "articles", "test.Rmd"))
 
-  expect_error(package_vignettes(dir))
+  expect_snapshot(package_vignettes(dir), error = TRUE)
 })
 
 test_that("package_vignettes() sorts articles alphabetically by file name", {
-  pkg <- local_pkgdown_site(test_path("assets/articles"))
+  pkg <- local_pkgdown_site()
+  pkg <- pkg_add_file(pkg, "vignettes/a.Rmd")
+  pkg <- pkg_add_file(pkg, "vignettes/b.Rmd")
+  pkg <- pkg_add_file(pkg, "vignettes/c.Rmd")
+
   expect_equal(
-    order(basename(pkg$vignettes$file_out)),
-    seq_len(nrow(pkg$vignettes))
+    path_file(pkg$vignettes$file_out),
+    c("a.html", "b.html", "c.html")
   )
 })
 
 test_that("override works correctly for as_pkgdown", {
-  pkgdown <- as_pkgdown(test_path("assets/articles-images"))
-  expected_list <- list(figures = list(dev = "jpeg", fig.ext = "jpg", fig.width = 3, fig.asp = 1))
-  expect_equal(pkgdown$meta, expected_list)
-  modified_pkgdown <- as_pkgdown(pkgdown, override = list(figures = list(dev = "png")))
-  modified_list <- list(figures = list(dev = "png", fig.ext = "jpg", fig.width = 3, fig.asp = 1))
-  modified_pkgdown$meta
-  expect_equal(modified_pkgdown$meta, modified_list)
+  pkg1 <- local_pkgdown_site(meta = list(figures = list(dev = "jpeg")))
+  pkg2 <- as_pkgdown(pkg1, override = list(figures = list(dev = "png")))
+  expect_equal(pkg2$meta$figures$dev, "png")
 })
 # titles ------------------------------------------------------------------
 
 test_that("multiline titles are collapsed", {
-  rd <- rd_text("\\title{
+  rd <- rd_text(
+    "\\title{
     x
-  }", fragment = FALSE)
+  }",
+    fragment = FALSE
+  )
 
   expect_equal(extract_title(rd), "x")
 })
@@ -81,4 +86,76 @@ test_that("titles can contain other markup", {
 test_that("titles don't get autolinked code", {
   rd <- rd_text("\\title{\\code{foo()}}", fragment = FALSE)
   expect_equal(extract_title(rd), "<code>foo()</code>")
+})
+
+test_that("read_meta() errors gracefully if _pkgdown.yml failed to parse", {
+  pkg <- local_pkgdown_site()
+  pkg <- pkg_add_file(
+    pkg,
+    "_pkgdown.yml",
+    c(
+      "url: https://pkgdown.r-lib.org",
+      "  title: Build websites for R packages"
+    )
+  )
+  expect_snapshot(
+    as_pkgdown(pkg$src_path),
+    error = TRUE,
+    transform = function(x) gsub(pkg$src_path, "<src>", x, fixed = TRUE)
+  )
+})
+
+# lifecycle ---------------------------------------------------------------
+
+test_that("can extract lifecycle badges from description", {
+  rd_desc <- rd_text(
+    paste0("\\description{", lifecycle::badge("deprecated"), "}"),
+    fragment = FALSE
+  )
+  rd_param <- rd_text(
+    paste0("\\arguments{\\item{pkg}{", lifecycle::badge("deprecated"), "}}"),
+    fragment = FALSE
+  )
+
+  expect_equal(extract_lifecycle(rd_desc), "deprecated")
+  expect_equal(extract_lifecycle(rd_param), NULL)
+})
+
+test_that("malformed figures fail gracefully", {
+  rd_lifecycle <- function(x) extract_lifecycle(rd_text(x))
+
+  expect_null(rd_lifecycle("{\\figure{deprecated.svg}}"))
+  expect_null(rd_lifecycle("{\\figure{}}"))
+})
+
+# language ---------------------------------------------------------------------
+
+test_that("as_pkgdown sets language", {
+  # Default
+  pkg <- as_pkgdown(test_path("assets/reference"))
+  expect_equal(
+    pkg$lang,
+    "en"
+  )
+  # Single language specified in DESCRIPTION
+  pkg <- as_pkgdown(test_path("assets/reference-language/one"))
+  expect_equal(
+    pkg$lang,
+    "fr"
+  )
+  # Two languages specified in DESCRIPTION
+  pkg <- as_pkgdown(test_path("assets/reference-language/two"))
+  expect_equal(
+    pkg$lang,
+    "en-US"
+  )
+  # Language specified in _pkgdown.yml or override.
+  pkg <- as_pkgdown(
+    test_path("assets/reference-language/two"),
+    override = list(lang = "en-GB")
+  )
+  expect_equal(
+    pkg$lang,
+    "en-GB"
+  )
 })

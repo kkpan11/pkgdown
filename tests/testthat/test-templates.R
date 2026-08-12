@@ -11,7 +11,7 @@ test_that("template_candidates look in template dir then pkgdown", {
 
   pkg <- list(
     src_path = pkg_dir,
-    meta = list(template = list(path  = template_dir)),
+    meta = list(template = list(path = template_dir)),
     bs_version = 3
   )
 
@@ -22,10 +22,11 @@ test_that("template_candidates look in template dir then pkgdown", {
   dirs <- unique(path_dir(paths))
   expect_equal(
     dirs,
-    c(                                       # search for candidates...
+    c(
+      # search for candidates...
       path(pkg_dir, "pkgdown", "templates"), # first in local templates
-      path(template_dir),                    # second in global template path
-      path_pkgdown("BS3", "templates")       # finally in pkgdown templates
+      path(template_dir), # second in global template path
+      path_pkgdown("BS3", "templates") # finally in pkgdown templates
     )
   )
 })
@@ -73,11 +74,13 @@ test_that("find templates in local pkgdown first", {
 # Expected contents -------------------------------------------------------
 
 test_that("BS5 templates have main + aside", {
-  names <- dir(path_pkgdown("bs5", "templates"), pattern = "content-")
-  names <- path_ext_remove(names)
+  names <- dir_ls(path_pkgdown("BS5", "templates"), regexp = "content-")
+  names <- path_ext_remove(path_file(names))
   names <- gsub("content-", "", names)
 
-  templates <- lapply(names, read_template_html,
+  templates <- lapply(
+    names,
+    read_template_html,
     type = "content",
     pkg = list(bs_version = 5)
   )
@@ -88,10 +91,13 @@ test_that("BS5 templates have main + aside", {
     expect_equal(xpath_length(template, ".//div/main"), 1, info = name)
     expect_equal(xpath_attr(template, ".//div/main", "id"), "main", info = name)
     expect_equal(xpath_length(template, ".//div/aside"), 1, info = name)
-    expect_equal(xpath_attr(template, ".//div/aside", "class"), "col-md-3", info = name)
+    expect_equal(
+      xpath_attr(template, ".//div/aside", "class"),
+      "col-md-3",
+      info = name
+    )
   }
 })
-
 
 # Bootstrap version resolution --------------------------------------------
 test_that("Bootstrap version in template package under `template.bootstrap`", {
@@ -99,7 +105,9 @@ test_that("Bootstrap version in template package under `template.bootstrap`", {
     meta = list(template = list(bootstrap = 5))
   )
 
-  pkg <- local_pkgdown_site(meta = list(template = list(package = "templatepackage")))
+  pkg <- local_pkgdown_site(
+    meta = list(template = list(package = "templatepackage"))
+  )
 
   expect_equal(pkg$bs_version, 5)
 })
@@ -109,7 +117,9 @@ test_that("Bootstrap version in template package under `template.bslib.version`"
     meta = list(template = list(bslib = list(version = 5)))
   )
 
-  pkg <- local_pkgdown_site(meta = list(template = list(package = "templatepackage")))
+  pkg <- local_pkgdown_site(
+    meta = list(template = list(package = "templatepackage"))
+  )
 
   expect_equal(pkg$bs_version, 5)
 })
@@ -121,16 +131,23 @@ test_that("Invalid bootstrap version spec in template package", {
 
   expect_snapshot(
     error = TRUE,
-    local_pkgdown_site(meta = list(template = list(package = "templatepackage")))
+    local_pkgdown_site(
+      meta = list(template = list(package = "templatepackage"))
+    )
   )
 })
 
 test_that("Invalid bootstrap version spec in _pkgdown.yml", {
   expect_snapshot(
     error = TRUE,
-    local_pkgdown_site(meta = list(template = list(
-      bootstrap = 4, bslib = list(version = 5)
-    )))
+    local_pkgdown_site(
+      meta = list(
+        template = list(
+          bootstrap = 4,
+          bslib = list(version = 5)
+        )
+      )
+    )
   )
 })
 
@@ -140,73 +157,60 @@ test_that("Valid local Bootstrap version masks invalid template package", {
   )
 
   expect_no_error(
-    local_pkgdown_site(meta = list(template = list(
-      package = "templatepackage",
-      bootstrap = 5
-    )))
+    local_pkgdown_site(
+      meta = list(
+        template = list(
+          package = "templatepackage",
+          bootstrap = 5
+        )
+      )
+    )
   )
 })
 
 # Bootstrap theme resolution ----------------------------------------------
 test_that("Finds Bootstrap theme in all the places", {
-  pkg_sketchy <- local_pkgdown_site(meta = '
-    template:
-      bslib:
-        preset: sketchy
-        version: 5
-  ')
-  pkg_superhero <- local_pkgdown_site(meta = '
-    template:
-      bslib:
-        preset: superhero
-        version: 5
-  ')
-  pkg_cosmo <- local_pkgdown_site(meta = '
-    template:
-      bootstrap: 5
-      bootswatch: cosmo
-  ')
-
-  pkg_yeti <- local_pkgdown_site(meta = '
-    template:
-      bootstrap: 5
-      params:
-        bootswatch: yeti
-  ')
+  pkg_sketchy <- local_pkgdown_site(
+    meta = list(template = list(bslib = list(preset = "sketchy", version = 5)))
+  )
+  pkg_cosmo <- local_pkgdown_site(
+    meta = list(template = list(bootstrap = 5, bootswatch = "cosmo"))
+  )
+  pkg_yeti <- local_pkgdown_site(
+    meta = list(
+      template = list(bootstrap = 5, params = list(bootswatch = "yeti"))
+    )
+  )
 
   expect_equal(get_bslib_theme(pkg_sketchy), "sketchy")
-  expect_equal(get_bslib_theme(pkg_superhero), "superhero")
   expect_equal(get_bslib_theme(pkg_cosmo), "cosmo")
   expect_equal(get_bslib_theme(pkg_yeti), "yeti")
 })
 
 test_that("Warns when Bootstrap theme is specified in multiple locations", {
-  pkg <- local_pkgdown_site(meta = '
-    template:
-      bootstrap: 5
-      bootswatch: cerulean
-      bslib:
-        preset: flatly
-        bootswatch: lux
-      params:
-        bootswatch: darkly
-  ')
-
-  expect_snapshot_warning(
-    get_bslib_theme(pkg)
+  pkg <- local_pkgdown_site(
+    meta = list(
+      template = list(
+        bootstrap = 5,
+        bootswatch = "cerulean",
+        bslib = list(preset = "flatly", bootswatch = "lux"),
+        params = list(bootswatch = "darkly")
+      )
+    )
   )
+  expect_snapshot(get_bslib_theme(pkg))
 })
 
 test_that("Doesn't warn when the same Bootstrap theme is specified in multiple locations", {
-  pkg <- local_pkgdown_site(meta = '
-    template:
-      bootswatch: cerulean
-      bslib:
-        preset: cerulean
-  ')
-
-  expect_equal(
-    expect_silent(get_bslib_theme(pkg)),
-    "cerulean"
+  pkg <- local_pkgdown_site(
+    meta = list(
+      template = list(
+        bootstrap = 5,
+        bootswatch = "cerulean",
+        bslib = list(preset = "cerulean")
+      )
+    )
   )
+
+  expect_equal(expect_silent(get_bslib_theme(pkg)), "cerulean")
 })

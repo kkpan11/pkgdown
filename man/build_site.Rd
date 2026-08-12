@@ -15,7 +15,7 @@ build_site(
   devel = FALSE,
   new_process = !devel,
   install = !devel,
-  document = "DEPRECATED"
+  quiet = TRUE
 )
 }
 \arguments{
@@ -58,7 +58,8 @@ in the current process affects the build process.}
 \item{install}{If \code{TRUE}, will install the package in a temporary library
 so it is available for vignettes.}
 
-\item{document}{\strong{Deprecated} Use \code{devel} instead.}
+\item{quiet}{If \code{FALSE}, generate build messages for build functions that
+take \code{quiet} arguments.}
 }
 \description{
 \code{build_site()} is a convenient wrapper around six functions:
@@ -70,6 +71,7 @@ so it is available for vignettes.}
 \item \code{\link[=build_tutorials]{build_tutorials()}}
 \item \code{\link[=build_news]{build_news()}}
 \item \code{\link[=build_redirects]{build_redirects()}}
+\item \code{\link[=build_llm_docs]{build_llm_docs()}}
 }
 
 See the documentation for the each function to learn how to control
@@ -88,7 +90,7 @@ whole site.
 It specifies where the site will be published and is used to allow other
 pkgdown sites to link to your site when needed (\code{vignette("linking")}),
 generate a \code{sitemap.xml}, automatically generate a \code{CNAME} when
-\link[=deploy_site_github]{deploying to github}, generate the metadata needed
+\link[=build_site_github_pages]{deploying to github}, generate the metadata needed
 rich social "media cards" (\code{vignette("metadata")}), and more.
 \item \code{title} overrides the default site title, which is the package name.
 It's used in the page title and default navbar.
@@ -99,11 +101,6 @@ It's used in the page title and default navbar.
 The \code{navbar} and \code{footer} fields control the appearance of the navbar
 footer which appear on every page. Learn more about these fields in
 \code{vignette("customise")}.
-}
-
-\section{Search}{
-The \code{search} field controls the built-in search and is
-documented in \code{vignette("search")}.
 }
 
 \section{Development mode}{
@@ -248,20 +245,21 @@ recommend getting the HTML directly from the tool:
     in_header: |
       <script defer data-domain="\{YOUR DOMAIN\}" src="https://plausible.io/js/plausible.js"></script>
 }\if{html}{\out{</div>}}
-\item \href{https://analytics.google.com/analytics/web/}{Google analytics}:
+\item \href{https://developers.google.com/analytics}{Google analytics}:
 
 \if{html}{\out{<div class="sourceCode yaml">}}\preformatted{template:
   includes:
     in_header: |
        <!-- Global site tag (gtag.js) - Google Analytics -->
-       <script async src="https://www.googletagmanager.com/gtag/js?id=\{YOUR TRACKING ID\}"#' ></script>
+       <script async src="https://www.googletagmanager.com/gtag/js?id=\{YOUR MEASUREMENT ID\}" ></script>
        <script>
          window.dataLayer = window.dataLayer || [];
          function gtag()\{dataLayer.push(arguments);\}
          gtag('js', new Date());
 
-         gtag('config', '\{YOUR TRACKING ID\}');
+         gtag('config', '\{YOUR MEASUREMENT ID\}');
        </script>
+       <!-- Google tag (gtag.js) -->
 }\if{html}{\out{</div>}}
 \item \href{https://www.goatcounter.com}{GoatCounter}:
 
@@ -279,8 +277,8 @@ Use the \code{repo} field to override pkgdown's automatically discovery
 of your source repository. This is used in the navbar, on the homepage,
 in articles and reference topics, and in the changelog (to link to issue
 numbers and user names). pkgdown can automatically figure out the necessary
-URLs if you link to a GitHub or GitLab repo in your \code{BugReports} or \code{URL}
-field.
+URLs if you link to a GitHub, GitLab or Codeberg repo in your \code{BugReports}
+or \code{URL} field.
 
 Otherwise, you can supply your own in the \code{repo} field:
 
@@ -293,13 +291,23 @@ Otherwise, you can supply your own in the \code{repo} field:
 }\if{html}{\out{</div>}}
 \itemize{
 \item \code{home}: path to package home on source code repository.
-\item \verb{source:}: path to source of individual file in default branch.
+\item \code{source}: path to source of individual file in default branch
+(more on that below).
 \item \code{issue}: path to individual issue.
 \item \code{user}: path to user.
 }
 
 The varying components (e.g. path, issue number, user name) are pasted on
 the end of these URLs so they should have trailing \code{/}s.
+
+When creating the link to a package source, we have to link to a specific
+branch. The default behaviour is to use current branch when in GitHub
+actions and \code{HEAD} otherwise. You can overide this default with
+\code{repo.branch}:
+
+\if{html}{\out{<div class="sourceCode yaml">}}\preformatted{repo:
+  branch: devel
+}\if{html}{\out{</div>}}
 
 pkgdown can automatically link to Jira issues as well if specify both a
 custom \code{issue} URL as well Jira project names to auto-link in
@@ -309,14 +317,6 @@ custom \code{issue} URL as well Jira project names to auto-link in
   jira_projects: [this_project, another_project]
   url:
     issue: https://jira.organisation.com/jira/browse/
-}\if{html}{\out{</div>}}
-
-pkgdown defaults to using the "HEAD" branch for source file URLs. This can
-be configured to use a specific branch when linking to source files by
-specifying a branch name:
-
-\if{html}{\out{<div class="sourceCode yaml">}}\preformatted{repo:
-  branch: devel
 }\if{html}{\out{</div>}}
 }
 
@@ -333,18 +333,6 @@ time (e.g. because behind a firewall or requires auth).
   install_metadata: true
 }\if{html}{\out{</div>}}
 }
-}
-
-\section{Options}{
-Users with limited internet connectivity can disable CRAN checks by setting
-\code{options(pkgdown.internet = FALSE)}. This will also disable some features
-from pkgdown that requires an internet connectivity. However, if it is used
-to build docs for a package that requires internet connectivity in examples
-or vignettes, this connection is required as this option won't apply on them.
-
-Users can set a timeout for \code{build_site(new_process = TRUE)} with
-\code{options(pkgdown.timeout = Inf)}, which is useful to prevent stalled builds from
-hanging in cron jobs.
 }
 
 \examples{

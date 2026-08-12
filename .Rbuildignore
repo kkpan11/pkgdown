@@ -19,3 +19,13 @@
 ^fake-index.html$
 ^CRAN-SUBMISSION$
 ^tools$
+^\.lintr.R$
+^vignettes/\.quarto$
+^vignettes/articles/\.quarto$
+^vignettes/articles/*_files$
+^vignettes/articles$
+^\.vscode$
+^\.git-blame-ignore-revs$
+^AGENTS\.md$
+^\.claude$
+^[.]?air[.]toml$

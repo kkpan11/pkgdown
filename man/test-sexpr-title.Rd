@@ -7,7 +7,7 @@
 Test case: \Sexpr[stage=render,results=rd]{"sexpr"}
 }
 \seealso{
-Other tests: 
+Other tests:
 \code{\link{index}},
 \code{\link{test-crayon}},
 \code{\link{test-dont}},
@@ -15,6 +15,7 @@ Other tests:
 \code{\link{test-links}},
 \code{\link{test-lists}},
 \code{\link{test-long-lines}},
+\code{\link{test-math-examples}},
 \code{\link{test-output-styles}},
 \code{\link{test-params}},
 \code{\link{test-tables}},

@@ -1,25 +1,33 @@
-activate_navbar <- function(html, path, pkg = list()) {
+activate_navbar <- function(html, path, pkg = list(bs_version = 5)) {
+  if (pkg$bs_version <= 3) {
+    return()
+  }
+
   path <- remove_useless_parts(path, pkg = pkg)
 
   # Get nav items, their links, their similarity to the current path
   navbar_haystack <- navbar_links_haystack(html, pkg, path)
-
-  # Nothing similar
   if (nrow(navbar_haystack) == 0) {
     return()
   }
 
   # Pick the most similar link, activate the corresponding nav item
-  tweak_class_prepend(
-    navbar_haystack$nav_item[which.max(navbar_haystack$similar)][[1]],
-    "active"
-  )
+  best_match <- navbar_haystack[which.max(navbar_haystack$similar), ]
+  tweak_class_prepend(best_match$nav_item[[1]], "active")
+
+  invisible()
 }
 
 navbar_links_haystack <- function(html, pkg, path) {
   # Extract links from the menu items
-  html_navbar <- xml2::xml_find_first(html, ".//div[contains(@class, 'navbar')]")
-  nav_items <- xml2::xml_find_all(html_navbar,".//li[contains(@class, 'nav-item')]")
+  html_navbar <- xml2::xml_find_first(
+    html,
+    ".//div[contains(@class, 'navbar')]"
+  )
+  nav_items <- xml2::xml_find_all(
+    html_navbar,
+    ".//li[contains(@class, 'nav-item')]"
+  )
 
   get_hrefs <- function(nav_item, pkg = pkg) {
     href <- xml2::xml_attr(xml2::xml_child(nav_item), "href")
@@ -34,7 +42,10 @@ navbar_links_haystack <- function(html, pkg, path) {
 
     tibble::tibble(
       nav_item = list(nav_item),
-      links = remove_useless_parts(links[is_internal_link(links, pkg = pkg)], pkg = pkg)
+      links = remove_useless_parts(
+        links[is_internal_link(links, pkg = pkg)],
+        pkg = pkg
+      )
     )
   }
 
@@ -64,7 +75,11 @@ navbar_links_haystack <- function(html, pkg, path) {
       sum(similar, na.rm = TRUE)
     }
   }
-  haystack$similar <- purrr::map_dbl(haystack$links, get_similarity, needle = path)
+  haystack$similar <- purrr::map_dbl(
+    haystack$links,
+    get_similarity,
+    needle = path
+  )
 
   # Only return rows of links with some similarity to the current path
   haystack[haystack$similar > 0, ]

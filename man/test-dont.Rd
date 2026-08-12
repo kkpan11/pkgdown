@@ -7,52 +7,72 @@
 Test case: don't
 }
 \examples{
+# \dontrun{} --------------------------------------------------------
+# always shown; never run
+
+x <- 1
+\dontrun{x <- 2}
 \dontrun{
-  abort("This is an error!")
+  x <- 3
+  x <- 4
 }
+x # should be 1
 
-# Inline \donttest is silently ommitted
-\donttest{message("Hi!")}
+# \donttest{} -------------------------------------------------------
+# only multiline are shown; always run
 
-# Block \donttest indicated with comments
+x <- 1
+\donttest{x <- 2}
 \donttest{
-# This is a comment
-1 + 3
+  x <- 3
+  x <- 4
 }
+x # should be 4
 
-# And works even when not at the top level
-if (TRUE) {
-  \donttest{
-  1 + 2
-  }
+# \testonly{} -----------------------------------------------------
+# never shown, never run
+
+x <- 1
+\testonly{x <- 2}
+\testonly{
+  x <- 3
+  x <- 4
 }
+x # should be 1
 
-answer <- 1
+# \dontshow{} -------------------------------------------------------
+# never shown, always run
+
+x <- 1
+\dontshow{x <- 2}
 \dontshow{
-answer <- 42
+  x <- 3
+  x <- 4
 }
-answer # should be 42
+x # should be 4
 
-# To hide the \dontshow part, for conditional examples
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-answer <- 43
-\dontshow{\}) # examplesIf}
-answer # should be still 42
+# @examplesIf ------------------------------------------------------
+# If FALSE, wrapped in if; if TRUE, not seen
 
-# But this one runs, and the condition is hidden
-\dontshow{if (TRUE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-answer <- 43
+x <- 1
+
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
+x <- 2
 \dontshow{\}) # examplesIf}
-answer
+\dontshow{if (TRUE) withAutoprint(\{ # examplesIf}
+x <- 3
+\dontshow{\}) # examplesIf}
+x # should be 3
 }
 \seealso{
-Other tests: 
+Other tests:
 \code{\link{index}},
 \code{\link{test-crayon}},
 \code{\link{test-figures}},
 \code{\link{test-links}},
 \code{\link{test-lists}},
 \code{\link{test-long-lines}},
+\code{\link{test-math-examples}},
 \code{\link{test-output-styles}},
 \code{\link{test-params}},
 \code{\link{test-sexpr-title}},

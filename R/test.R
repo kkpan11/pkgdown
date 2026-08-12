@@ -53,17 +53,17 @@ NULL
 #' Test case: links
 #'
 #' ```{r}
-#' magrittr::subtract(10, 1)
+#' jsonlite::minify("{}")
 #' ```
 #'
 #' @name test-links
 #' @keywords internal
 #' @family tests
 #' @examples
-#' magrittr::subtract(10, 1)
+#' jsonlite::minify("{}")
 #'
-#' library(magrittr, warn.conflicts = FALSE)
-#' subtract(10, 1)
+#' library(jsonlite, warn.conflicts = FALSE)
+#' minify("{}")
 NULL
 
 #' Test case: figures
@@ -80,6 +80,8 @@ NULL
 #' plot(1:10)
 #' lines(1:10)
 #' text(2, 5, "Hello", srt = 30, cex = 2)
+#'
+#' plot(1:3, col = c("red", "green", "blue"), pch = 16, cex = 10)
 NULL
 
 #' Test case: tables
@@ -97,44 +99,61 @@ NULL
 #' @keywords internal
 #' @family tests
 #' @examples
+#' # \dontrun{} --------------------------------------------------------
+#' # always shown; never run
+#'
+#' x <- 1
+#' \dontrun{x <- 2}
 #' \dontrun{
-#'   abort("This is an error!")
+#'   x <- 3
+#'   x <- 4
 #' }
+#' x # should be 1
 #'
-#' # Inline \donttest is silently ommitted
-#' \donttest{message("Hi!")}
+#' # \donttest{} -------------------------------------------------------
+#' # only multiline are shown; always run
 #'
-#' # Block \donttest indicated with comments
+#' x <- 1
+#' \donttest{x <- 2}
 #' \donttest{
-#' # This is a comment
-#' 1 + 3
+#'   x <- 3
+#'   x <- 4
 #' }
+#' x # should be 4
 #'
-#' # And works even when not at the top level
-#' if (TRUE) {
-#'   \donttest{
-#'   1 + 2
-#'   }
+#' # \testonly{} -----------------------------------------------------
+#' # never shown, never run
+#'
+#' x <- 1
+#' \testonly{x <- 2}
+#' \testonly{
+#'   x <- 3
+#'   x <- 4
 #' }
+#' x # should be 1
 #'
-#' answer <- 1
+#' # \dontshow{} -------------------------------------------------------
+#' # never shown, always run
+#'
+#' x <- 1
+#' \dontshow{x <- 2}
 #' \dontshow{
-#' answer <- 42
+#'   x <- 3
+#'   x <- 4
 #' }
-#' answer # should be 42
+#' x # should be 4
 #'
-#' # To hide the \dontshow part, for conditional examples
-#' \dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-#' answer <- 43
-#' \dontshow{\}) # examplesIf}
-#' answer # should be still 42
+#' # @examplesIf ------------------------------------------------------
+#' # If FALSE, wrapped in if; if TRUE, not seen
 #'
-#' # But this one runs, and the condition is hidden
-#' \dontshow{if (TRUE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-#' answer <- 43
-#' \dontshow{\}) # examplesIf}
-#' answer
-
+#' x <- 1
+#'
+#' @examplesIf FALSE
+#' x <- 2
+#' @examplesIf TRUE
+#' x <- 3
+#' @examples
+#' x # should be 3
 NULL
 
 #' Test case: params
@@ -255,6 +274,32 @@ NULL
 #' Test case: \Sexpr[stage=render,results=rd]{"sexpr"}
 #'
 #' @name test-sexpr-title
+#' @keywords internal
+#' @family tests
+NULL
+
+#' Test case: math rendering in examples
+#'
+#' @param x \eqn{f(x) > 0}: inline equation
+#'
+#' @details
+#' Display equation:
+#'
+#' \deqn{y = \alpha + \beta X + \varepsilon}
+#'
+#' Multi-line equation (correctly rendered by katex only):
+#'
+#' \deqn{\text{Minimize } l \\
+#' \text{ subject to } \\
+#' \sum_{i = 1}^{I} x_i r_{ij} + y_j \geq t_j \forall j \in J \\
+#' l \geq \frac{y_j}{t_j} \forall j \in J \\
+#' \sum_{i = 1}^{I} x_i c_i \leq B}{
+#' Minimize l subject to
+#' sum_i^I (xi * rij) + yj >= tj for all j in J &
+#' l >= (yj / tj) for all j in J &
+#' sum_i^I (xi * ci) <= B}
+#'
+#' @name test-math-examples
 #' @keywords internal
 #' @family tests
 NULL

@@ -10,11 +10,12 @@ rd2ex <- function(x, ...) {
   }
 }
 
-run_examples <- function(x,
-                         topic = "unknown",
-                         env = globalenv(),
-                         run_dont_run = FALSE) {
-
+run_examples <- function(
+  x,
+  topic = "unknown",
+  env = globalenv(),
+  run_dont_run = FALSE
+) {
   if (!inherits(x, "tag")) {
     x <- rd_text(x)
   }
@@ -42,11 +43,14 @@ run_examples <- function(x,
 process_conditional_examples <- function(rd) {
   if (is.list(rd)) {
     which_exif <- which(purrr::map_lgl(rd, function(x) {
-      "tag_dontshow" %in% class(x) &&
+      "tag_dontshow" %in%
+        class(x) &&
         is.character(x[[1]]) &&
         grepl("# examplesIf$", x[[1]])
     }))
-    if (length(which_exif) == 0) return(rd)
+    if (length(which_exif) == 0) {
+      return(rd)
+    }
     if (length(which_exif) %% 2 != 0) {
       cli::cli_abort("@examplesIf error, not closed?", call = caller_env())
     }
@@ -63,7 +67,7 @@ process_conditional_examples <- function(rd) {
         if (isTRUE(cond)) {
           remove <- c(remove, idx, idx + 1L)
         } else {
-          cond_expr_str <- paste(deparse(cond_expr), collapse = " ")
+          cond_expr_str <- deparse1(cond_expr)
           is_false <- cond_expr_str == "FALSE"
           if (!is_false) {
             new_cond <- paste0("if (FALSE) { # ", cond_expr_str)
@@ -78,7 +82,10 @@ process_conditional_examples <- function(rd) {
       } else {
         # End of @examplesIf
         if (modes[1] == "begin") {
-          cli::cli_abort("@examplesIf error, closed twice?", call = caller_env())
+          cli::cli_abort(
+            "@examplesIf error, closed twice?",
+            call = caller_env()
+          )
         }
         if (isTRUE(cond)) {
           remove <- c(remove, idx, idx + 1L)
@@ -88,14 +95,14 @@ process_conditional_examples <- function(rd) {
       }
       modes <- rev(modes)
     }
-    if (length(remove)) rd <- rd[-remove]
+    if (length(remove)) {
+      rd <- rd[-remove]
+    }
     rd
-
   } else {
     rd
   }
 }
-
 
 
 # as_example --------------------------------------------------------------
@@ -129,9 +136,9 @@ as_example.tag_dontrun <- function(x, run_dont_run = FALSE) {
   } else {
     ex <- flatten_ex(x, run_dont_run = run_dont_run)
     if (is_newline(x[[1]], trim = TRUE)) {
-      paste0("if (FALSE) {", ex, "}")
+      paste0("if (FALSE) { # \\dontrun{", ex, "} # }")
     } else {
-      paste0("if (FALSE) ", ex, "")
+      paste0("if (FALSE) ", ex, " # \\dontrun{}")
     }
   }
 }
@@ -142,19 +149,24 @@ as_example.tag_donttest <- function(x, run_dont_run = FALSE) {
 }
 #' @export
 as_example.tag_dontshow <- function(x, run_dont_run = FALSE) {
-  block_tag_to_comment("\\dontshow", x, run_dont_run = run_dont_run)
+  ex <- flatten_ex(x, run_dont_run = run_dont_run)
+  paste0("DONTSHOW({", ex, "})")
 }
 #' @export
 as_example.tag_testonly <- function(x, run_dont_run = FALSE) {
-  block_tag_to_comment("\\testonly", x, run_dont_run = run_dont_run)
+  ex <- flatten_ex(x, run_dont_run = run_dont_run)
+  paste0("TESTONLY({", ex, "})")
 }
 
 block_tag_to_comment <- function(tag, x, run_dont_run = FALSE) {
+  ex <- flatten_ex(x, run_dont_run = run_dont_run)
+
+  # Not easy to strip leading whitespace because it's attached to the previous
+  # tag. So instead we add a comment to occupy that space
   if (is_newline(x[[1]], trim = TRUE)) {
-    paste0("# ", tag, "{", flatten_ex(x, run_dont_run = run_dont_run), "# }")
-  } else {
-    flatten_ex(x, run_dont_run = run_dont_run)
+    ex <- paste0("# ", tag, "{", ex, "# }")
   }
+  ex
 }
 
 #' @export
@@ -199,8 +211,11 @@ flatten_ex <- function(x, run_dont_run = FALSE) {
 }
 
 can_parse <- function(x) {
-  tryCatch({
-    parse(text = x)
-    TRUE
-  }, error = function(e) FALSE)
+  tryCatch(
+    {
+      parse(text = x)
+      TRUE
+    },
+    error = function(e) FALSE
+  )
 }

@@ -27,11 +27,17 @@ tweak_reference_highlighting <- function(html) {
 }
 
 is_wrapped_pre <- function(html) {
-  xml2::xml_find_lgl(html, "boolean(parent::div[contains(@class, 'sourceCode')])")
+  xml2::xml_find_lgl(
+    html,
+    "boolean(parent::div[contains(@class, 'sourceCode')])"
+  )
 }
 
 is_handled_section <- function(html) {
-  xml2::xml_find_lgl(html, "boolean(ancestor::div[@id='ref-examples' or @id='ref-usage'])")
+  xml2::xml_find_lgl(
+    html,
+    "boolean(ancestor::div[@id='ref-examples' or @id='ref-usage'])"
+  )
 }
 
 tweak_highlight_r <- function(block) {
@@ -60,13 +66,17 @@ tweak_highlight_other <- function(div) {
 
   lang <- sub("sourceCode ", "", xml2::xml_attr(div, "class"))
   # since roxygen 7.2.0 generic code blocks have sourceCode with no lang
-  if (!is.na(lang) && lang == "sourceCode") lang <- "r"
+  if (!is.na(lang) && lang == "sourceCode") {
+    lang <- "r"
+  }
   # Pandoc does not recognize rmd as a language :-)
-  if (tolower(lang) %in% c("rmd", "qmd")) lang <- "markdown"
+  if (tolower(lang) %in% c("rmd", "qmd")) {
+    lang <- "markdown"
+  }
   # many backticks to account for possible nested code blocks
   # like a Markdown code block with code chunks inside
   md <- paste0("``````", lang, "\n", xml2::xml_text(code), "\n``````")
-  html <- markdown_text(md)
+  html <- markdown_text(NULL, md)
 
   xml_replace_contents(code, xml2::xml_find_first(html, "body/div/pre/code"))
   TRUE
@@ -74,16 +84,21 @@ tweak_highlight_other <- function(div) {
 
 xml_replace_contents <- function(node, new) {
   xml2::xml_remove(xml2::xml_contents(node))
-
   contents <- xml2::xml_contents(new)
-  for (child in contents) {
+  xml_insert(node, contents)
+}
+
+xml_insert <- function(node, new) {
+  for (child in new) {
     xml2::xml_add_child(node, child)
   }
 }
 
-
 tweak_extra_logo <- function(html) {
-  img <- xml2::xml_find_all(html, ".//div[contains(@class,'ref-description')]//img[contains(@src,'logo')]")
+  img <- xml2::xml_find_all(
+    html,
+    ".//div[contains(@class,'ref-description')]//img[contains(@src,'logo')]"
+  )
   xml2::xml_remove(img)
 
   invisible()

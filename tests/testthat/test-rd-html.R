@@ -3,6 +3,10 @@ test_that("special characters are escaped", {
   expect_equal(out, "a &amp; b")
 })
 
+test_that("converts Rd unicode shortcuts", {
+  expect_snapshot(rd2html("``a -- b --- c''"))
+})
+
 test_that("simple tags translated to known good values", {
   # Simple insertions
   expect_equal(rd2html("\\ldots"), "...")
@@ -29,11 +33,13 @@ test_that("subsection generates h3", {
 })
 
 test_that("subsection generates h3", {
-  expect_snapshot(cli::cat_line(rd2html("\\subsection{A}{
+  expect_snapshot(cli::cat_line(rd2html(
+    "\\subsection{A}{
     p1
 
     p2
-  }")))
+  }"
+  )))
 })
 
 test_that("subsection generates generated anchor", {
@@ -46,7 +52,9 @@ test_that("subsection generates generated anchor", {
 })
 
 test_that("nested subsection generates h4", {
-  expect_snapshot(cli::cat_line(rd2html("\\subsection{H3}{\\subsection{H4}{}}")))
+  expect_snapshot(cli::cat_line(rd2html(
+    "\\subsection{H3}{\\subsection{H4}{}}"
+  )))
 })
 
 test_that("if generates html", {
@@ -66,8 +74,13 @@ test_that("out is for raw html", {
 test_that("support platform specific code", {
   os_specific <- function(command, os, output) {
     rd2html(paste0(
-      "#", command, " ", os, "\n",
-      output, "\n",
+      "#",
+      command,
+      " ",
+      os,
+      "\n",
+      output,
+      "\n",
       "#endif"
     ))
   }
@@ -83,13 +96,23 @@ test_that("support platform specific code", {
 
 test_that("tabular generates complete table html", {
   table <- "\\tabular{ll}{a \\tab b \\cr}"
-  expectation <- c("<table class='table'>", "<tr><td>a</td><td>b</td></tr>", "</table>")
+  expectation <- c(
+    "<table class='table'>",
+    "<tr><td>a</td><td>b</td></tr>",
+    "</table>"
+  )
   expect_equal(rd2html(table), expectation)
 })
 
 test_that("internal \\crs are stripped", {
   table <- "\\tabular{l}{a \\cr b \\cr c \\cr}"
-  expectation <- c("<table class='table'>", "<tr><td>a</td></tr>", "<tr><td>b</td></tr>", "<tr><td>c</td></tr>", "</table>")
+  expectation <- c(
+    "<table class='table'>",
+    "<tr><td>a</td></tr>",
+    "<tr><td>b</td></tr>",
+    "<tr><td>c</td></tr>",
+    "</table>"
+  )
   expect_equal(rd2html(table), expectation)
 })
 
@@ -137,12 +160,14 @@ test_that("code blocks in tables render (#978)", {
 
 test_that("tables with tailing \n (#978)", {
   expect_equal(
-    rd2html('
+    rd2html(
+      '
       \\tabular{ll}{
         a   \\tab     \\cr
         foo \\tab bar
       }
-    ')[[2]],
+    '
+    )[[2]],
     "<tr><td>a</td><td></td></tr>"
   )
 })
@@ -188,7 +213,7 @@ test_that("Sexprs in file share environment", {
   expect_equal(rd2html("\\Sexpr{x <- 1}\\Sexpr{x}"), c("1", "1"))
 
   local_context_eval()
-  expect_error(rd2html("\\Sexpr{x}"), "not found")
+  expect_snapshot(rd2html("\\Sexpr{x}"), error = TRUE)
 })
 
 test_that("Sexprs run from package root", {
@@ -294,6 +319,13 @@ test_that("bad specs throw errors", {
   })
 })
 
+test_that("no autolink in href", {
+  expect_equal(
+    rd2html("\\href{https://example.com}{\\code{download.file()}}"),
+    "<a href='https://example.com'><code>download.file()</code></a>"
+  )
+})
+
 # Paragraphs --------------------------------------------------------------
 
 test_that("empty input gives empty output", {
@@ -354,39 +386,48 @@ test_that("simple lists work", {
 })
 
 test_that("\\describe items can contain multiple paragraphs", {
-  out <- rd2html("\\describe{
+  out <- rd2html(
+    "\\describe{
     \\item{Label 1}{Contents 1}
     \\item{Label 2}{Contents 2}
-  }")
+  }"
+  )
   expect_snapshot_output(cat(out, sep = "\n"))
 })
 
 test_that("can add ids to descriptions", {
-  out <- rd2html("\\describe{
+  out <- rd2html(
+    "\\describe{
     \\item{abc}{Contents 1}
     \\item{xyz}{Contents 2}
-  }", id_prefix = "foo")
+  }",
+    id_prefix = "foo"
+  )
   expect_snapshot_output(cat(out, sep = "\n"))
 })
 
 test_that("\\describe items can contain multiple paragraphs", {
-  out <- rd2html("\\describe{
+  out <- rd2html(
+    "\\describe{
     \\item{Label}{
       Paragraph 1
 
       Paragraph 2
     }
-  }")
+  }"
+  )
   expect_snapshot_output(cat(out, sep = "\n"))
 })
 
 test_that("nested item with whitespace parsed correctly", {
-  out <- rd2html("
+  out <- rd2html(
+    "
     \\describe{
     \\item{Label}{
 
       This text is indented in a way pkgdown doesn't like.
-  }}")
+  }}"
+  )
   expect_snapshot_output(cat(out, sep = "\n"))
 })
 
@@ -424,9 +465,6 @@ test_that("deqn", {
 })
 
 test_that("special", {
-  # Fails due to a bug prior to R 4.0.0:
-  # https://bugs.r-project.org/show_bug.cgi?id=17727
-  skip_if_not(getRversion() >= "4.0.0")
   out <- rd2html("\\special{( \\dots )}")
   expect_equal(out, "( ... )")
 })
@@ -443,6 +481,11 @@ test_that("figures are converted to img", {
 })
 
 test_that("figures with multilines alternative text can be parsed", {
-  expect_equal(rd2html("\\figure{a}{blabla
-    blop}"), "<img src='figures/a' alt='blabla blop' />")
+  expect_equal(
+    rd2html(
+      "\\figure{a}{blabla
+    blop}"
+    ),
+    "<img src='figures/a' alt='blabla blop' />"
+  )
 })

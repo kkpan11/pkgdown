@@ -1,17 +1,17 @@
-fig_save <- function(plot,
-                     name,
-                     dev = "ragg::agg_png",
-                     dpi = 96L,
-                     dev.args = list(),
-                     fig.ext = "png",
-                     fig.width = 700 / 96,
-                     fig.height = NULL,
-                     fig.retina = 2L,
-                     fig.asp = 1 / 1.618, # golden ratio
-                     bg = NULL,
-                     other.parameters = list()
-                     ) {
-
+fig_save <- function(
+  plot,
+  name,
+  dev = "ragg::agg_png",
+  dpi = 96L,
+  dev.args = list(),
+  fig.ext = "png",
+  fig.width = 700 / 96,
+  fig.height = NULL,
+  fig.retina = 2L,
+  fig.asp = 1 / 1.618, # golden ratio
+  bg = NULL,
+  other.parameters = list()
+) {
   path <- paste0(name, ".", fig.ext)
   dev <- match_fun(dev)
 
@@ -59,11 +59,11 @@ fig_save_args <- function() {
   default
 }
 
-meta_figures <- function(meta = list()) {
+meta_figures <- function(pkg) {
   default <- fig_save_args()
-  figures <- purrr::pluck(meta, "figures", .default = list())
+  figures <- config_pluck_list(pkg, "figures")
 
-  print_yaml(utils::modifyList(default, figures))
+  print_yaml(modify_list(default, figures))
 }
 
 #' Get current settings for figures
@@ -123,7 +123,11 @@ fig_opts_chunk <- function(figures, default) {
   figures$dev.args <- figures$dev.args %||% list()
   figures$dev.args$bg <- figures$bg %||% NA
 
-  utils::modifyList(default, figures)
+  # Default figure class for rendered images
+  # Same class as added by downlit
+  figures$fig.class <- figures$fig.class %||% "r-plt"
+
+  modify_list(default, figures)
 }
 
 # Find graphics device ----------------------------------------------------
@@ -136,7 +140,10 @@ match_fun <- function(x) {
     f <- eval(e, globalenv())
 
     if (!is.function(f)) {
-      cli::cli_abort("{.var x} must evaluate to a function", call = caller_env())
+      cli::cli_abort(
+        "{.var x} must evaluate to a function",
+        call = caller_env()
+      )
     }
 
     f
